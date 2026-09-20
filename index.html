@@ -305,6 +305,63 @@
   .btn:disabled { opacity: 0.42; cursor: not-allowed; }
   .btn:disabled:hover { transform: none; }
   .review-tag-build { background: #e8f5e9; color: #2e7d32; }
+  .review-tag-vocab { background: #fff3e0; color: #b25b00; }
+
+  /* ===== VOCABULARY (ことば) ===== */
+  .vocab-word {
+    font-size: 2.3em;
+    font-weight: 700;
+    color: #a01e34;
+    text-align: center;
+    line-height: 1.55;
+    margin: 10px 0 4px;
+    word-break: keep-all;
+  }
+  .vocab-reading {
+    text-align: center;
+    font-size: 1.15em;
+    color: #2f855a;
+    margin-bottom: 6px;
+  }
+  .vocab-id {
+    text-align: center;
+    font-size: 1.12em;
+    color: #b25b00;
+    line-height: 1.6;
+    margin-top: 4px;
+  }
+  .vocab-target {
+    font-size: 1.9em;
+    font-weight: 700;
+    color: #a01e34;
+    text-align: center;
+    line-height: 1.6;
+    margin: 6px 0 16px;
+  }
+  .vocab-prompt-id {
+    text-align: center;
+    font-size: 1.35em;
+    font-weight: 600;
+    color: #b25b00;
+    line-height: 1.6;
+    margin: 6px 0 16px;
+  }
+  .vocab-list { margin-top: 6px; }
+  .vocab-list-row {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    padding: 9px 4px;
+    border-bottom: 1px solid #edf2f7;
+  }
+  .vocab-list-w { font-weight: 600; color: #2c3e50; min-width: 38%; }
+  .vocab-list-id { color: #718096; font-size: 0.92em; }
+  @media (max-width: 480px) {
+    .vocab-word { font-size: 1.9em; }
+    .vocab-target { font-size: 1.6em; }
+    .vocab-list-row { flex-direction: column; gap: 2px; }
+    .vocab-list-w { min-width: 0; }
+  }
 
   @media (max-width: 600px) {
     .build-tile { font-size: 0.98em; padding: 8px 12px; }
@@ -1151,6 +1208,7 @@
     <button class="mode-tab" data-mode="build">🧩 <ruby>文<rt>ぶん</rt></ruby>づくり</button>
     <button class="mode-tab" data-mode="conjugation">⚡ <ruby>活用形<rt>かつようけい</rt></ruby>マスター</button>
     <button class="mode-tab" data-mode="kanji">📝 <ruby>漢字<rt>かんじ</rt></ruby></button>
+    <button class="mode-tab" data-mode="vocab">📖 ことば</button>
     <button class="mode-tab" data-mode="review">🔄 <ruby>復習<rt>ふくしゅう</rt></ruby>モード</button>
   </div>
 
@@ -1382,6 +1440,8 @@ function render() {
     renderKanjiMode();
   } else if (currentMode === "build") {
     renderBuildMode();
+  } else if (currentMode === "vocab") {
+    renderVocabMode();
   } else if (currentMode === "review") {
     renderReviewMode();
   }
@@ -6550,6 +6610,11 @@ function resolveReviewItem(entry) {
     const word = words.find(w => w.label === entry.label);
     if (word) return { kind: "kanji", word, lesson: entry.lesson };
     return null;
+  } else if (entry.type === "vocab") {
+    const words = getVocabWords(entry.lesson);
+    const word = words.find(v => v.w === entry.w);
+    if (word) return { kind: "vocab", word, lesson: entry.lesson };
+    return null;
   } else if (entry.type === "build") {
     const gps = BUILD_DATA[String(entry.lesson)] || [];
     const gp = gps.find(g => g.id === entry.gpId);
@@ -6589,6 +6654,8 @@ function renderReviewQuiz() {
     renderReviewGrammarQ(resolved, progressHeader);
   } else if (resolved.kind === "build") {
     renderReviewBuildQ(resolved, progressHeader);
+  } else if (resolved.kind === "vocab") {
+    renderReviewVocabQ(resolved, progressHeader);
   } else {
     renderReviewKanjiQ(resolved, progressHeader);
   }
@@ -10841,6 +10908,1152 @@ function answerReviewBuild() {
 }
 
 // =========================================================
+// VOCABULARY DATA (ことば)
+// =========================================================
+// w  = ことば（表記）
+// r  = 読み方（かなだけの語・カタカナ語は空）
+// id = インドネシア語の意味
+const VOCAB_DATA = {
+  "1": [
+    { w: "担当", r: "たんとう", id: "bertanggung jawab" },
+    { w: "一生懸命", r: "いっしょうけんめい", id: "bekerja keras" },
+    { w: "がんばります", r: "", id: "Saya akan berusaha / bekerja keras sebaik mungkin" },
+    { w: "大勢", r: "おおぜい", id: "banyak" },
+    { w: "お客さん", r: "おきゃくさん", id: "tamu; pengunjung" },
+    { w: "テント", r: "", id: "tenda" },
+    { w: "違います", r: "ちがいます", id: "berbeda" },
+    { w: "自己紹介", r: "じこしょうかい", id: "perkenalan diri" },
+    { w: "猫", r: "ねこ", id: "kucing" }
+  ],
+  "2": [
+    { w: "男の人", r: "おとこのひと", id: "pria" },
+    { w: "ジャンパー", r: "", id: "jaket" },
+    { w: "この間", r: "このあいだ", id: "beberapa waktu lalu" },
+    { w: "赤ちゃん", r: "あかちゃん", id: "bayi" },
+    { w: "泣く", r: "なく", id: "menangis" },
+    { w: "今度", r: "こんど", id: "kali ini" },
+    { w: "見た目", r: "みため", id: "penampilan" },
+    { w: "遅くまで", r: "おそくまで", id: "sampai larut malam" },
+    { w: "心配（な）", r: "しんぱい（な）", id: "khawatir" },
+    { w: "歌手", r: "かしゅ", id: "penyanyi" },
+    { w: "だれか", r: "", id: "seseorang" },
+    { w: "引退する", r: "いんたいする", id: "pensiun" },
+    { w: "今でも", r: "いまでも", id: "bahkan sekarang" },
+    { w: "俳優", r: "はいゆう", id: "aktor" },
+    { w: "そんな", r: "", id: "seperti itu" },
+    { w: "きっかけ", r: "", id: "hal yang memicu /mendorong" },
+    { w: "映画祭", r: "えいがさい", id: "festival film" },
+    { w: "世界中", r: "せかいじゅう", id: "seluruh dunia" },
+    { w: "ファン", r: "", id: "penggemar/membuat jadi (suka)" },
+    { w: "まず", r: "", id: "mula-mula" },
+    { w: "金色", r: "きんいろ", id: "warna keemasan" },
+    { w: "驚く", r: "おどろく", id: "terkejut" },
+    { w: "明るい", r: "あかるい", id: "terang" },
+    { w: "びっくりする", r: "", id: "kaget" },
+    { w: "ハイキング", r: "", id: "hiking" },
+    { w: "できれば", r: "", id: "bila memungkinkan" }
+  ],
+  "3": [
+    { w: "豆腐", r: "とうふ", id: "tahu" },
+    { w: "注文する", r: "ちゅうもんする", id: "memesan" },
+    { w: "メニュー", r: "", id: "menu" },
+    { w: "ほかの", r: "", id: "lainnya" },
+    { w: "わさび抜き", r: "わさびぬき", id: "tanpa wasabi（～抜き tanpa--）" },
+    { w: "～名～", r: "～めい～", id: "orang" },
+    { w: "当店", r: "とうてん", id: "restoran kami/ restoran ini" },
+    { w: "全面", r: "ぜんめん", id: "secara keseluruhan" },
+    { w: "決まる", r: "きまる", id: "memutuskan" },
+    { w: "人気がある", r: "にんきがある", id: "populer" },
+    { w: "ミックスフライ", r: "", id: "aneka lauk goreng" },
+    { w: "量", r: "りょう", id: "porsi" },
+    { w: "別々", r: "べつべつ", id: "bayar masing-masing" },
+    { w: "クーポン", r: "", id: "voucer, kupon" },
+    { w: "次回", r: "じかい", id: "lain kali; kedatangan berikutnya" },
+    { w: "日にち", r: "ひにち", id: "tanggal" },
+    { w: "まちがい", r: "", id: "kesalahan" },
+    { w: "失礼しました", r: "しつれいしました", id: "Saya mohon maaf" },
+    { w: "半額", r: "はんがく", id: "separuh harga" },
+    { w: "有効期限", r: "ゆうこうきげん", id: "masa berlaku" }
+  ],
+  "4": [
+    { w: "おれ", r: "", id: "Aku（一般的に男性に使う (umumnya digunakan pria)" },
+    { w: "看板", r: "かんばん", id: "papan nama" },
+    { w: "この辺", r: "このへん", id: "sekitar sini" },
+    { w: "新しく", r: "あたらしく", id: "baru" },
+    { w: "できる", r: "", id: "dibuka; rampung" },
+    { w: "地図", r: "ちず", id: "peta" },
+    { w: "送る", r: "おくる", id: "mengirim" },
+    { w: "このあたり", r: "", id: "sekitar; dekat sini" },
+    { w: "夫婦", r: "ふうふ", id: "pasangan suami istri" },
+    { w: "知りませんでした", r: "しりませんでした", id: "Saya tidak mengetahui sebelumnya (karena baru saja mendengarnya)." },
+    { w: "味がついている", r: "あじがついている", id: "berbumbu" },
+    { w: "しょうゆ", r: "", id: "kecap asin khas Jepang" },
+    { w: "つゆ", r: "", id: "saus kaldu (saus celup)" },
+    { w: "そのまま", r: "", id: "begitu saja" },
+    { w: "のり", r: "", id: "rumput laut" },
+    { w: "皮", r: "かわ", id: "kulit; kulit pembungkus" },
+    { w: "お待たせしました", r: "おまたせしました", id: "Terima kasih telah menunggu." },
+    { w: "一度に", r: "いちどに", id: "sekaligus" },
+    { w: "そんなに", r: "", id: "sebegitu (banyak)" },
+    { w: "こうやって", r: "", id: "seperti ini" },
+    { w: "ポン酢", r: "ポンず", id: "cuka ponzu (saus berbasis lemon)" },
+    { w: "ごまだれ", r: "", id: "saus wijen" },
+    { w: "白菜", r: "はくさい", id: "sawi putih" },
+    { w: "ゆで卵", r: "ゆでたまご", id: "telur rebus" },
+    { w: "～など～", r: "", id: "dan lain lain" },
+    { w: "甘辛い", r: "あまからい", id: "pedas manis" },
+    { w: "固い", r: "かたい", id: "keras" },
+    { w: "どれも", r: "", id: "yang mana pun" },
+    { w: "定食屋", r: "ていしょく", id: "restoran yang khusus menyediakan menu paket khas Jepang （～屋 restoran ~）" },
+    { w: "ボリューム", r: "", id: "porsi (banyaknya)" },
+    { w: "満足（な）", r: "まんぞく（な）", id: "puas" },
+    { w: "おばちゃん", r: "", id: "wanita paruh baya" },
+    { w: "リーズナブル（な）", r: "", id: "masuk akal" }
+  ],
+  "5": [
+    { w: "番組", r: "ばんぐみ", id: "acara TV" },
+    { w: "いつか", r: "", id: "suatu hari nanti" },
+    { w: "やっぱり", r: "", id: "ternyata (sesuai dugaan)" },
+    { w: "ラッシュ", r: "", id: "jam sibuk" },
+    { w: "水族館", r: "すいぞくかん", id: "akuarium raksasa ; sea world" },
+    { w: "行き先", r: "いきさき", id: "tujuan/ tempat tujuan" },
+    { w: "湖", r: "みずうみ", id: "danau" },
+    { w: "レンタサイクル", r: "", id: "rental/persewaan sepeda" },
+    { w: "先輩", r: "せんぱい", id: "senior; rekan kerja senior" },
+    { w: "出発する", r: "しゅっぱつする", id: "berangkat" },
+    { w: "紅葉", r: "こうよう", id: "daun maple yang memerah" },
+    { w: "かなり", r: "", id: "cukup" },
+    { w: "上着", r: "うわぎ", id: "jaket" },
+    { w: "小さな", r: "ちいさな", id: "kecil, mungil" },
+    { w: "宿", r: "やど", id: "penginapan" },
+    { w: "時期", r: "じき", id: "musim" },
+    { w: "調べる", r: "しらべる", id: "mengecek, mencari tahu" },
+    { w: "くわしい", r: "", id: "rinci, mendetail" },
+    { w: "回転ずし", r: "かいてんずし", id: "restoran sushi modern dengan meja konveyor" },
+    { w: "並ぶ", r: "ならぶ", id: "berbaris, mengantri" },
+    { w: "日焼けする", r: "ひやけする", id: "berjemur" },
+    { w: "スキー場", r: "スキーじょう", id: "tempat ski" },
+    { w: "日帰り", r: "ひがえり", id: "perjalanan sehari" },
+    { w: "まったく～ない", r: "", id: "sama sekali tidak --" },
+    { w: "寄る", r: "よる", id: "mampir, singgah" },
+    { w: "意外に", r: "いがいに", id: "diluar dugaan" },
+    { w: "楽しむ", r: "たのしむ", id: "menikmati" }
+  ],
+  "6": [
+    { w: "～発", r: "～はつ", id: "berangkat pada～" },
+    { w: "～着", r: "～ちゃく", id: "tiba di ～" },
+    { w: "～号", r: "～ごう", id: "nomor～" },
+    { w: "～号車", r: "～ごうしゃ", id: "gerbong nomor ～" },
+    { w: "～席", r: "～せき", id: "tempat duduk nomor ～" },
+    { w: "遅れ", r: "おくれ", id: "terlambat" },
+    { w: "約10分", r: "やくじゅっぷん", id: "sekitar 10 menit（約～ sekitar~/kira-kira ～）" },
+    { w: "運転見合わせ", r: "うんてんみあわせ", id: "dihentikan sementara waktu" },
+    { w: "外国", r: "がいこく", id: "luar negeri" },
+    { w: "1泊", r: "いっぱく", id: "menginap semalam（～泊～ menginap~malam）" },
+    { w: "名物", r: "めいぶつ", id: "kuliner khas lokal" },
+    { w: "特急", r: "とっきゅう", id: "kereta ekspres" },
+    { w: "9両", r: "9りょう", id: "sembilan gerbong （～両~gerbong）" },
+    { w: "順", r: "じゅん", id: "urutan" },
+    { w: "グリーン車", r: "グリーンしゃ", id: "green car (gerbong eksekutif; gerbong kelas utama)" },
+    { w: "（ご）乗車", r: "（ご）じょうしゃ", id: "naik ke kereta" },
+    { w: "信号故障", r: "しんごうこしょう", id: "kerusakan lampu lalu lintas" },
+    { w: "アナウンス", r: "", id: "pengumuman" },
+    { w: "困る", r: "こまる", id: "menyulitkan" },
+    { w: "ご迷惑をおかけします", r: "ごめいわくをおかけします", id: "Mohon maaf atas ketidaknyamanan ini" },
+    { w: "何て言ってましたか？", r: "なんていってましたか？", id: "Apa katanya?" },
+    { w: "人身事故", r: "じんしんじこ", id: "kecelakaan fatal/ serius" },
+    { w: "ご利用ください", r: "ごりようください", id: "Silakan gunakan" },
+    { w: "空", r: "そら", id: "langit" },
+    { w: "ウミネコ", r: "", id: "camar ekor hitam" },
+    { w: "あの辺", r: "あのへん", id: "sekitar sana" },
+    { w: "だから", r: "", id: "karena itulah" },
+    { w: "あきらめる", r: "", id: "menyerah" },
+    { w: "頂上", r: "ちょうじょう", id: "puncak" },
+    { w: "滝", r: "たき", id: "air terjun" },
+    { w: "きらきら", r: "", id: "berkilauan" },
+    { w: "光る", r: "ひかる", id: "bersinar" },
+    { w: "インスタントラーメン", r: "", id: "mie instan" },
+    { w: "絵を描く", r: "えをかく", id: "melukis" }
+  ],
+  "7": [
+    { w: "断水", r: "だんすい", id: "pemadaman air" },
+    { w: "水道工事", r: "すいどうこうじ", id: "pekerjaan perbaikan saluran air" },
+    { w: "（水が）濁る", r: "（みずが）にごる", id: "(airnya) keruh" },
+    { w: "使用する", r: "しようする", id: "menggunakan" },
+    { w: "防災", r: "ぼうさい", id: "pencegahan bencana" },
+    { w: "小学校", r: "しょうがっこう", id: "Sekolah Dasar" },
+    { w: "校庭", r: "こうてい", id: "halaman sekolah" },
+    { w: "雨天", r: "うてん", id: "hujan" },
+    { w: "場合", r: "ばあい", id: "apabila" },
+    { w: "条件", r: "じょうけん", id: "kondisi, syarat" },
+    { w: "運動靴", r: "うんどうぐつ", id: "sepatu olah raga" },
+    { w: "動きやすい", r: "うごきやすい", id: "mudah bergerak" },
+    { w: "はっぴ", r: "", id: "rompi happi" },
+    { w: "貸し出し", r: "かしだし", id: "rental" },
+    { w: "希望", r: "きぼう", id: "harapan, keinginan" },
+    { w: "申し込む", r: "もうしこむ", id: "mendaftarkan diri" },
+    { w: "延期する", r: "えんきする", id: "ditunda, diundur" },
+    { w: "持ち物", r: "もちもの", id: "bawaan" },
+    { w: "汚れる", r: "よごれる", id: "menjadi kotor" },
+    { w: "軍手", r: "ぐんて", id: "sarung tangan kerja" },
+    { w: "ポスト", r: "", id: "kotak pos" },
+    { w: "間", r: "あいだ", id: "antara（14時から15時の間 antara pukul 14:00 - 15:00）" },
+    { w: "封筒", r: "ふうとう", id: "amplop" },
+    { w: "手紙", r: "てがみ", id: "surat" },
+    { w: "～だけ", r: "", id: "hanya" },
+    { w: "中止", r: "ちゅうし", id: "batal" },
+    { w: "広場", r: "ひろば", id: "lapangan" },
+    { w: "今月", r: "こんげつ", id: "bulan ini" },
+    { w: "おもちゃ", r: "", id: "mainan" },
+    { w: "～において", r: "", id: "di ～" },
+    { w: "開催する", r: "かいさいする", id: "mengadakan" },
+    { w: "入場券", r: "にゅうじょうけん", id: "tiket masuk" },
+    { w: "明日", r: "あす", id: "besok" },
+    { w: "行う", r: "おこなう", id: "menyelenggarakan" },
+    { w: "どなたでも", r: "", id: "siapapun" },
+    { w: "見学する", r: "けんがくする", id: "mengamati, mengobservasi" },
+    { w: "～について", r: "", id: "tentang, mengenai" },
+    { w: "本日", r: "ほんじつ", id: "hari ini" },
+    { w: "開く", r: "ひらく", id: "mengadakan" },
+    { w: "地元", r: "じもと", id: "lokal" },
+    { w: "農家", r: "のうか", id: "petani" },
+    { w: "生産する", r: "せいさんする", id: "memproduksi" },
+    { w: "盆踊り", r: "ぼんおどり", id: "tarian Bon Odori" },
+    { w: "輪になる", r: "わになる", id: "membuat lingkaran" },
+    { w: "音楽に合わせて", r: "おんがくにあわせて", id: "mengikuti iringan musik" },
+    { w: "娘たち", r: "むすめたち", id: "putri-putriku ～" },
+    { w: "たち", r: "", id: "(pengungkapan jamak untuk manusia)" },
+    { w: "１人で", r: "ひとりで", id: "(melakukan) sendiri (tanpa bantuan orang lain)" }
+  ],
+  "8": [
+    { w: "国際交流", r: "こくさいこうりゅう", id: "pertukaran budaya internasional" },
+    { w: "入場料", r: "にゅうじょうりょう", id: "harga tiket masuk (HTM)" },
+    { w: "民族衣装", r: "みんぞくいしょう", id: "pakaian tradisional" },
+    { w: "受け付け", r: "うけつけ", id: "resepsionis/meja informasi" },
+    { w: "あっち", r: "", id: "di sana" },
+    { w: "つきあたり", r: "", id: "di ujung -- (jalan; lorong)" },
+    { w: "たぶん", r: "", id: "mungkin" },
+    { w: "中学生", r: "ちゅうがくせい", id: "siswa SMP (Sekolah Menengah Pertama)" },
+    { w: "プロ", r: "", id: "profesional" },
+    { w: "遠慮する", r: "えんりょする", id: "diharapkan tidak melakukan" },
+    { w: "参加費", r: "さんかひ", id: "biaya pendaftaran" },
+    { w: "優勝する", r: "ゆうしょうする", id: "pemenang pertama" },
+    { w: "賞品（が出る）", r: "しょうひん（がでる）", id: "(ada) hadiahnya" },
+    { w: "相談する", r: "そうだんする", id: "berkonsultasi" },
+    { w: "必要事項", r: "ひつようじこう", id: "informasi yang dibutuhkan" },
+    { w: "先着順", r: "せんちゃくじゅん", id: "berdasarkan urutan tiba (siapa cepat dia dapat)" },
+    { w: "順番に", r: "じゅんばんに", id: "secara berurutan" },
+    { w: "公園内", r: "こうえんない", id: "dalam taman（～内 dalam ～）" },
+    { w: "お子様", r: "おこさま", id: "anak-anak" },
+    { w: "協力する", r: "きょうりょくする", id: "bekerja sama" },
+    { w: "電源（を切る）", r: "でんげん（をきる）", id: "mematikan" },
+    { w: "マナーモード", r: "", id: "mode senyap (silent mode)" },
+    { w: "設定する", r: "せっていする", id: "mengeset; mengatur" },
+    { w: "通話する", r: "つうわする", id: "berbicara di telepon" },
+    { w: "持ち込み", r: "もちこみ", id: "membawa" },
+    { w: "禁止", r: "きんし", id: "dilarang" },
+    { w: "終了する", r: "しゅうりょうする", id: "berakhir; selesai" },
+    { w: "個数", r: "こすう", id: "jumlah; kuantitas" },
+    { w: "限られている", r: "かぎられている", id: "dibatasi; terbatas" },
+    { w: "列", r: "れつ", id: "antrean" },
+    { w: "太鼓", r: "たいこ", id: "drums/ beduk khas Jepang" },
+    { w: "たたく", r: "", id: "menabuh, memukul" },
+    { w: "来年", r: "らいねん", id: "tahun depan" }
+  ],
+  "9": [
+    { w: "アルコール", r: "", id: "alkohol" },
+    { w: "若い", r: "わかい", id: "muda" },
+    { w: "おしゃれをする", r: "", id: "berdandan; berpakaian indah" },
+    { w: "中学校", r: "ちゅうがっこう", id: "SMP" },
+    { w: "盛り上がる", r: "もりあがる", id: "meriah, semarak" },
+    { w: "必ず", r: "かならず", id: "selalu" },
+    { w: "過ごす", r: "すごす", id: "menghabiskan waktu" },
+    { w: "乗り物", r: "のりもの", id: "wahana permainan" },
+    { w: "今年", r: "ことし", id: "tahun ini" },
+    { w: "親戚", r: "しんせき", id: "kerabat" },
+    { w: "集まる", r: "あつまる", id: "berkumpul" },
+    { w: "毎年", r: "まいとし", id: "setiap tahun" },
+    { w: "甥", r: "おい", id: "keponakan laki-laki" },
+    { w: "姪", r: "めい", id: "keponakan perempuan" },
+    { w: "大切（な）", r: "たいせつ（な）", id: "penting, berharga" },
+    { w: "どんなふうに", r: "", id: "bagaimana" },
+    { w: "祝う", r: "いわう", id: "merayakan" },
+    { w: "赤", r: "あか", id: "merah" },
+    { w: "おめでたい", r: "", id: "bernuansa perayaan" },
+    { w: "色", r: "いろ", id: "warna" },
+    { w: "イスラム教", r: "イスラムきょう", id: "Agama Islam" },
+    { w: "ラマダン", r: "", id: "Ramadan" },
+    { w: "例えば", r: "たとえば", id: "misalnya" },
+    { w: "飾りつけ", r: "かざりつけ", id: "dekorasi, hiasan" },
+    { w: "半分", r: "はんぶん", id: "setengah" },
+    { w: "当日", r: "とうじつ", id: "pada hari itu" },
+    { w: "大人", r: "おとな", id: "orang dewasa" },
+    { w: "味わう", r: "あじわう", id: "merasakan, menikmati" },
+    { w: "伝統的（な）", r: "でんとうてき（な）", id: "tradisional" },
+    { w: "文化", r: "ぶんか", id: "kebudayaan" },
+    { w: "感想", r: "かんそう", id: "impresi; kesan" },
+    { w: "語る", r: "かたる", id: "bercerita" },
+    { w: "昨年", r: "さくねん", id: "tahun lalu" },
+    { w: "遊ぼう", r: "あそぼう", id: "Ayo nongkrong/ hang out !" }
+  ],
+  "10": [
+    { w: "（お）葬式", r: "（お）そうしき", id: "upacara pemakaman" },
+    { w: "スーツ", r: "", id: "setelan jas" },
+    { w: "暗い", r: "くらい", id: "gelap" },
+    { w: "地味な", r: "じみな", id: "tidak mencolok" },
+    { w: "（お）香典", r: "（お）こうでん", id: "uang duka" },
+    { w: "香典袋", r: "こうでんぶくろ", id: "amplop untuk uang duka" },
+    { w: "ジャケット", r: "", id: "jaket" },
+    { w: "お葬式用", r: "おそうしきよう", id: "untuk upacara pemakaman（～用 untuk～）" },
+    { w: "披露宴", r: "ひろうえん", id: "resepsi" },
+    { w: "招待状", r: "しょうたいじょう", id: "surat undangan" },
+    { w: "だったら", r: "", id: "kalau begitu" },
+    { w: "カジュアル（な", r: "", id: "k）asual" },
+    { w: "感じ", r: "かんじ", id: "yang tampak; tampilan" },
+    { w: "白", r: "しろ", id: "putih" },
+    { w: "花嫁", r: "はなよめ", id: "pengantin; mempelai wanita" },
+    { w: "（お）見舞い", r: "（お）みまい", id: "menjenguk orang sakit" },
+    { w: "同僚", r: "どうりょう", id: "rekan kerja" },
+    { w: "骨を折る", r: "ほねをおる", id: "patah tulang" },
+    { w: "鉢植え", r: "はちうえ", id: "tanaman dalam pot" },
+    { w: "イメージ", r: "", id: "gambaran, imaji; kesan" },
+    { w: "花束", r: "はなたば", id: "karangan bunga" },
+    { w: "本人", r: "ほんにん", id: "orang itu sendiri; orangnya" },
+    { w: "入院する", r: "にゅういんする", id: "dirawat di rumah sakit, opname" },
+    { w: "新築祝い", r: "しんちくいわい", id: "syukuran rumah baru" },
+    { w: "習慣", r: "しゅうかん", id: "kebiasaan" },
+    { w: "全員", r: "ぜんいん", id: "semuanya" },
+    { w: "くり返す", r: "くりかえす", id: "mengulang" },
+    { w: "まねをする", r: "", id: "meniru" },
+    { w: "ルールを守る", r: "ルールをまもる", id: "menaati peraturan" },
+    { w: "貼り紙", r: "はりがみ", id: "tanda; petunjuk" },
+    { w: "もちろん", r: "", id: "tentu saja" },
+    { w: "臭い", r: "くさい", id: "bau tidak sedap" },
+    { w: "うるさい", r: "", id: "berisik, bising" },
+    { w: "食べ終わる", r: "たべおわる", id: "selesai makan（～終わる selesai ～）" },
+    { w: "つまる", r: "", id: "menyumbat" },
+    { w: "席", r: "せき", id: "tempat duduk" },
+    { w: "のどが渇く", r: "のどがかわく", id: "merasa haus" },
+    { w: "かご", r: "", id: "keranjang" },
+    { w: "空", r: "から", id: "kosong" },
+    { w: "ボトル", r: "", id: "botol" },
+    { w: "怒る", r: "おこる", id: "marah" },
+    { w: "ちゃんと", r: "", id: "sebagaimana semestinya" },
+    { w: "店長", r: "てんちょう", id: "manajer toko" },
+    { w: "泥棒", r: "どろぼう", id: "pencuri" },
+    { w: "袋", r: "ふくろ", id: "pembungkus, bungkusan" },
+    { w: "だんだん", r: "", id: "sedikit demi sedikit" },
+    { w: "気に入る", r: "きにいる", id: "menyukai" },
+    { w: "直接", r: "ちょくせつ", id: "secara langsung" },
+    { w: "～杯～", r: "～はい～", id: "gelas (untuk menyatakan satuan)" },
+    { w: "お金を取る", r: "おかねをとる", id: "berbayar" },
+    { w: "ひどい", r: "", id: "keterlaluan" },
+    { w: "信じられない", r: "しんじられない", id: "tak dapat dipercaya（信じる percaya）" },
+    { w: "チップ", r: "", id: "tip" }
+  ],
+  "11": [
+    { w: "ただいま", r: "", id: "saat ini" },
+    { w: "全品", r: "ぜんぴん", id: "semua produk" },
+    { w: "セーター", r: "", id: "sweter" },
+    { w: "試着する", r: "しちゃくする", id: "mencoba memakai" },
+    { w: "試着室", r: "しちゃくしつ", id: "ruang ganti" },
+    { w: "派手（な）", r: "はで（な）", id: "mencolok" },
+    { w: "盗む", r: "ぬすむ", id: "mencuri" },
+    { w: "停める", r: "とめる", id: "memarkir" },
+    { w: "移動する", r: "いどうする", id: "memindahkan; berpindah" },
+    { w: "急に", r: "きゅうに", id: "tiba-tiba" },
+    { w: "ソファ", r: "", id: "sofa" },
+    { w: "さっき", r: "", id: "tadi" },
+    { w: "もしかしたら", r: "", id: "mungkin" },
+    { w: "とる", r: "", id: "mengambil/ mencuri" },
+    { w: "ポイントカード", r: "", id: "kartu poin" },
+    { w: "スタンプ（を押す）", r: "スタンプ（をおす）", id: "membubuhkan cap" },
+    { w: "届く", r: "とどく", id: "diserahkan" },
+    { w: "スマートフォン（スマホ）", r: "", id: "smartphone; ponsel pintar" },
+    { w: "カバー", r: "", id: "cover, penutup" },
+    { w: "気づく", r: "きづく", id: "menyadari" },
+    { w: "つながる", r: "", id: "tersambung" },
+    { w: "見つかる", r: "みつかる", id: "menemukan" },
+    { w: "遺失物届", r: "いしつぶつとどけ", id: "laporan mengenai barang hilang" },
+    { w: "連絡をとる", r: "れんらくをとる", id: "menghubungi" },
+    { w: "セール", r: "", id: "sale; obral" },
+    { w: "先ほど", r: "さきほど", id: "tadi; baru saja" },
+    { w: "お買い上げ", r: "おかいあげ", id: "pembelian" },
+    { w: "かぎ", r: "", id: "kunci" },
+    { w: "心当たり", r: "こころあたり", id: "(yang) mengetahuinya" },
+    { w: "海の幸", r: "うみのさち", id: "seafood" },
+    { w: "スイーツ", r: "", id: "makanan manis" },
+    { w: "秋の味覚", r: "あきのみかく", id: "makanan; masakan saat musim gugur" },
+    { w: "1週間限り", r: "いっしゅうかんかぎり", id: "hanya selama 1 pekan（～限り hanya --）" }
+  ],
+  "12": [
+    { w: "メーカー", r: "", id: "produsen" },
+    { w: "ワイヤレス", r: "", id: "wireless; nirkabel" },
+    { w: "手元", r: "てもと", id: "(sampai ke) padaku" },
+    { w: "電気屋", r: "でんきや", id: "toko elektronik" },
+    { w: "国道沿い", r: "こくどうぞい", id: "di sepanjang jalur nasional" },
+    { w: "開店", r: "かいてん", id: "pembukaan toko" },
+    { w: "フリマサイト", r: "", id: "situs flea market" },
+    { w: "家電", r: "かでん", id: "perlengkapan rumah tangga" },
+    { w: "絞り込み", r: "しぼりこみ", id: "filter pencarian (mempersempit lingkup pencarian produk)" },
+    { w: "価格", r: "かかく", id: "harga" },
+    { w: "状態", r: "じょうたい", id: "kondisi" },
+    { w: "配送料", r: "はいそうりょう", id: "ongkir (ongkos kirim)" },
+    { w: "傷", r: "きず", id: "goresan" },
+    { w: "汚れ", r: "よごれ", id: "bercak; noda" },
+    { w: "～込み", r: "～こみ", id: "termasuk ～" },
+    { w: "購入（する）", r: "こうにゅう（する）", id: "membeli" },
+    { w: "税別", r: "ぜいべつ", id: "harga belum termasuk pajak" },
+    { w: "重さ", r: "おもさ", id: "berat" },
+    { w: "連続", r: "れんぞく", id: "terus menerus; tanpa henti" },
+    { w: "充電", r: "じゅうでん", id: "pengecasan; isi ulang daya" },
+    { w: "しっかり", r: "", id: "sepenuhnya; sampai tuntas" },
+    { w: "軽い", r: "かるい", id: "ringan" },
+    { w: "動かす", r: "うごかす", id: "memindahkan; menggerakkan" },
+    { w: "持つ", r: "もつ", id: "membawa" },
+    { w: "比べる", r: "くらべる", id: "membandingkan" },
+    { w: "パワフル（な）", r: "", id: "powerful" },
+    { w: "機能", r: "きのう", id: "fitur; fungsi" },
+    { w: "つく", r: "", id: "memiliki; termasuk" },
+    { w: "カーペット", r: "", id: "karpet" },
+    { w: "畳", r: "たたみ", id: "tatami" },
+    { w: "エコモード", r: "", id: "eco mode; mode hemat daya" },
+    { w: "複雑（な）", r: "ふくざつ（な）", id: "rumit" },
+    { w: "重い", r: "おもい", id: "berat" },
+    { w: "予算オーバー", r: "よさんオーバー", id: "melebihi anggaran" },
+    { w: "シンプル（な", r: "", id: "s）impel; sederhana" },
+    { w: "消費税", r: "しょうひぜい", id: "pajak konsumen" },
+    { w: "配送", r: "はいそう", id: "pengiriman" },
+    { w: "合わせて", r: "あわせて", id: "digabungkan" },
+    { w: "貯まる", r: "たまる", id: "terakumulasi; terkumpul" },
+    { w: "変わる", r: "かわる", id: "berubah" }
+  ],
+  "13": [
+    { w: "建てる", r: "たてる", id: "mendirikan" },
+    { w: "メイン", r: "", id: "utama" },
+    { w: "PC", r: "", id: "personal computer" },
+    { w: "自由に", r: "じゆうに", id: "dengan bebas" },
+    { w: "展示する", r: "てんじする", id: "memamerkan" },
+    { w: "歴史", r: "れきし", id: "sejarah" },
+    { w: "～につき", r: "", id: "untuk setiap ～" },
+    { w: "かかる", r: "", id: "biayanya" },
+    { w: "下りる", r: "おりる", id: "turun" },
+    { w: "シューズ", r: "", id: "sepatu" },
+    { w: "マシン", r: "", id: "mesin" },
+    { w: "トレーナー", r: "", id: "pelatih" },
+    { w: "～ほど", r: "", id: "sekitar ～" },
+    { w: "受ける", r: "うける", id: "menerima" },
+    { w: "声をかける", r: "こえをかける", id: "menyapa, berbicara kepada" },
+    { w: "ご了承ください", r: "ごりょうしょうください", id: "Mohon dicatat; Mohon dipahami" },
+    { w: "さまざまな", r: "", id: "berbagai macam" },
+    { w: "彫刻", r: "ちょうこく", id: "ukiran" },
+    { w: "画家", r: "がか", id: "pelukis" },
+    { w: "～を中心に", r: "～をちゅうしんに", id: "utamanya" },
+    { w: "セット券", r: "セットけん", id: "tiket terusan" },
+    { w: "フラッシュ", r: "", id: "lampu kilat, blitz" },
+    { w: "ついている", r: "", id: "disertai dengan; termasuk" },
+    { w: "インターネット", r: "", id: "internet" },
+    { w: "プリンター", r: "", id: "printer" },
+    { w: "確認する", r: "かくにんする", id: "mengecek, memastikan" },
+    { w: "在留カード", r: "ざいりゅうカード", id: "kartu izin tinggal" },
+    { w: "～冊～", r: "～さつ～", id: "jilid (buku)" },
+    { w: "～点～", r: "～てん～", id: "item (barang)" },
+    { w: "返す", r: "かす", id: "mengembalikan" },
+    { w: "閉まる", r: "しまる", id: "tutup" },
+    { w: "返却ポスト", r: "へんきゃくポスト", id: "kotak pengembalian" },
+    { w: "開く", r: "あく", id: "buka" },
+    { w: "延ばす", r: "のばす", id: "memperpanjang" },
+    { w: "～のうち", r: "", id: "dalam～" },
+    { w: "預ける", r: "あずける", id: "menitipkan, menyimpan" },
+    { w: "館内", r: "かんない", id: "(di) dalam gedung" },
+    { w: "入館", r: "にゅうかん", id: "masuk; memasuki suatu tempat" }
+  ],
+  "14": [
+    { w: "シミ", r: "", id: "noda" },
+    { w: "落ちる", r: "おちる", id: "hilang (noda)" },
+    { w: "シミ抜き", r: "シミぬき", id: "menghilangkan noda" },
+    { w: "別料金", r: "べつりょうきん", id: "biaya tambahan" },
+    { w: "お渡し", r: "おわたし", id: "penyerahan; pengembalian" },
+    { w: "空気", r: "くうき", id: "angin; udara" },
+    { w: "空気入れ", r: "くうきいれ", id: "memompa; mengisi angin" },
+    { w: "タイヤ", r: "", id: "ban" },
+    { w: "キャップ", r: "", id: "penutup" },
+    { w: "はずす", r: "", id: "melepas" },
+    { w: "かぶせる", r: "", id: "menutup" },
+    { w: "ついでに", r: "", id: "sekalian; sekaligus" },
+    { w: "油を差す", r: "あぶらをさす", id: "meminyaki; mengolesi minyak" },
+    { w: "はさむ", r: "", id: "menjepit" },
+    { w: "宅配便", r: "たくはいびん", id: "jasa layanan pengiriman paket" },
+    { w: "着払い", r: "ちゃくばらい", id: "pembayaran oleh penerima paket" },
+    { w: "元払い", r: "もとばらい", id: "pembayaran oleh pengirim paket" },
+    { w: "伝票", r: "でんぴょう", id: "slip pengiriman" },
+    { w: "お届け", r: "おとどけ", id: "pengiriman" },
+    { w: "指定", r: "してい", id: "tertentu" },
+    { w: "午前中", r: "ごぜんちゅう", id: "pagi hari" },
+    { w: "最も", r: "もっとも", id: "paling" },
+    { w: "受け取る", r: "うけとる", id: "menerima" },
+    { w: "お預かりします", r: "おあずかりします", id: "Kami terima paket Anda." },
+    { w: "表示する", r: "ひょうじする", id: "menampilkan" },
+    { w: "キャッシュカード", r: "", id: "kartu ATM; kartu debet" },
+    { w: "お引き出し", r: "おひきだし", id: "penarikan uang" },
+    { w: "暗証番号", r: "あんしょうばんごう", id: "PIN" },
+    { w: "入力する", r: "にゅうりょくする", id: "menginput" },
+    { w: "4桁", r: "4けた", id: "4 digit（～桁～ digit）" },
+    { w: "次に", r: "つぎに", id: "selanjutnya" },
+    { w: "金額", r: "きんがく", id: "besaran; nominal uang" },
+    { w: "～円札", r: "～えんさつ", id: "uang pecahan ~ yen" },
+    { w: "一部", r: "いちぶ", id: "sebagian" },
+    { w: "両替する", r: "りょうがえする", id: "penukaran pecahan uang" },
+    { w: "紙幣", r: "しへい", id: "uang kertas" },
+    { w: "利用明細", r: "りようめいさい", id: "setruk transaksi" },
+    { w: "郵便物", r: "ゆうびんぶつ", id: "paket" },
+    { w: "不在", r: "ふざい", id: "tidak berada di tempat" },
+    { w: "窓口", r: "まどぐち", id: "loket, konter" },
+    { w: "再配達", r: "さいはいたつ", id: "pengiriman ulang" },
+    { w: "自動", r: "じどう", id: "otomatis" },
+    { w: "（お）勤め先", r: "（お）つとめさき", id: "alamat tempat kerja" },
+    { w: "近所", r: "きんじょ", id: "tetangga" },
+    { w: "どのように", r: "", id: "bagaimana" },
+    { w: "全体的に", r: "ぜんたいてきに", id: "secara keseluruhan" },
+    { w: "～mm～", r: "", id: "milimeter" },
+    { w: "まわり", r: "", id: "sekitarnya" },
+    { w: "ひげ剃り", r: "ひげそり", id: "cukur jenggot" },
+    { w: "鏡", r: "かがみ", id: "cermin" },
+    { w: "後ろのほう", r: "うしろのほう", id: "bagian belakang" },
+    { w: "こんな感じ", r: "こんなかんじ", id: "seperti ini" },
+    { w: "洗面台", r: "せんめんだい", id: "wastafel; bak cuci rambut" },
+    { w: "カット", r: "", id: "potong rambut" },
+    { w: "お返し", r: "おかえし", id: "kembalian" },
+    { w: "バリカン", r: "", id: "mesin pencukur rambut (hair clippers)" },
+    { w: "どのような", r: "", id: "bagaimana" },
+    { w: "長さ", r: "ながさ", id: "panjangnya" },
+    { w: "シャンプー台", r: "シャンプーだい", id: "tempat mencuci rambut" },
+    { w: "前髪", r: "まえがみ", id: "poni" },
+    { w: "質問", r: "しつもん", id: "pertanyaan" },
+    { w: "ビザ", r: "", id: "visa" },
+    { w: "情報", r: "じょうほう", id: "informasi" },
+    { w: "けが", r: "", id: "luka" },
+    { w: "通訳", r: "つうやく", id: "penerjemah; alih bahasa" },
+    { w: "有料", r: "ゆうりょう", id: "berbayar" },
+    { w: "助かる", r: "たすかる", id: "terbantu; tertolong" },
+    { w: "楽に", r: "らくに", id: "dengan mudah" },
+    { w: "暮らす", r: "くらす", id: "hidup, tinggal" },
+    { w: "入門", r: "にゅうもん", id: "tingkat pemula" },
+    { w: "上級", r: "じょうきゅう", id: "tingkat mahir" },
+    { w: "個人レッスン", r: "こじんレッスン", id: "kelas privat" }
+  ],
+  "15": [
+    { w: "（電気を）消す", r: "（でんきを）けす", id: "mematikan (lampu)" },
+    { w: "節電", r: "せつでん", id: "penghematan listrik" },
+    { w: "マイバッグ", r: "", id: "my bag (tas belanja ramah lingkungan)" },
+    { w: "もったいない", r: "", id: "mubazir" },
+    { w: "缶", r: "かん", id: "kaleng" },
+    { w: "まとめる", r: "", id: "dikumpulkan" },
+    { w: "水を出す", r: "みずをだす", id: "membuka keran, mengalirkan air" },
+    { w: "止める", r: "とめる", id: "mematikan (air), menutup (keran)" },
+    { w: "すすぐ", r: "", id: "membilas" },
+    { w: "マイ～", r: "", id: "my ～" },
+    { w: "ペットボトル", r: "", id: "botol plastik" },
+    { w: "4種類", r: "4しゅるい", id: "4 jenis（～種類 ～ jenis）" },
+    { w: "分ける", r: "わける", id: "memilah, membagi" },
+    { w: "ひも", r: "", id: "tali" },
+    { w: "しばる", r: "", id: "mengikat" },
+    { w: "中身", r: "なかみ", id: "isi" },
+    { w: "ラベル", r: "", id: "label" },
+    { w: "つぶさない", r: "", id: "jangan dihancurkan（つぶす menghancurkan）" },
+    { w: "水を切る", r: "みずをきる", id: "dikeringkan" },
+    { w: "布", r: "ぬの", id: "kain" },
+    { w: "しみこませる", r: "", id: "dibiarkan terendam; diserap" },
+    { w: "固める", r: "かためる", id: "dipadatkan" },
+    { w: "包む", r: "つつむ", id: "membungkus" },
+    { w: "危険", r: "きけん", id: "bahaya" },
+    { w: "取る", r: "とる", id: "dilepas" },
+    { w: "粗大ごみ受付センター", r: "そだいごみうけつけセンター", id: "Pusat Penerimaan Sampah Ukuran Besar" },
+    { w: "大きさ", r: "おおきさ", id: "ukuran, besarnya" },
+    { w: "シール", r: "", id: "stiker" },
+    { w: "貼る", r: "はる", id: "menempel" }
+  ],
+  "16": [
+    { w: "上陸する", r: "じょうりくする", id: "mencapai daratan" },
+    { w: "非常に", r: "ひじょうに", id: "sangat" },
+    { w: "激しい", r: "はげしい", id: "kuat" },
+    { w: "様子", r: "ようす", id: "kondisi; keadaan" },
+    { w: "絶対に", r: "ぜったいに", id: "apapun yang terjadi" },
+    { w: "やめる", r: "", id: "menghentikan; berhenti" },
+    { w: "安全（な）", r: "あんぜん（な）", id: "aman" },
+    { w: "係員", r: "かかりいん", id: "petugas" },
+    { w: "指示に従う", r: "しじにしたがう", id: "mematuhi instruksi" },
+    { w: "（お）年寄り", r: "（お）としより", id: "lansia" },
+    { w: "優先", r: "ゆうせん", id: "diutamakan, diprioritaskan" },
+    { w: "揺れ", r: "ゆれ", id: "getaran; goncangan" },
+    { w: "警戒する", r: "けいかいする", id: "mewaspadai" },
+    { w: "身を守る", r: "みをまもる", id: "melindungi diri" },
+    { w: "家具", r: "かぐ", id: "furnitur; mebel" },
+    { w: "震源", r: "しんげん", id: "pusat gempa" },
+    { w: "海底", r: "かいてい", id: "dasar laut" },
+    { w: "～のおそれがある", r: "", id: "dikhawatirkan adanya ～" },
+    { w: "震度", r: "しんど", id: "intensitas seismik gempa" },
+    { w: "（揺れが）おさまる", r: "（ゆれが）おさまる", id: "getaran; goncangan berhenti" },
+    { w: "開始する", r: "かいしする", id: "mulai" },
+    { w: "中庭", r: "なかにわ", id: "taman gedung" },
+    { w: "チームごと", r: "", id: "tiap tim（～ごと tiap ～）" },
+    { w: "初期消火", r: "しょきしょうか", id: "memadamkan api pada tahap awal" },
+    { w: "消火器", r: "しょうかき", id: "alat pemadam api" },
+    { w: "逃げ遅れる", r: "にげおくれる", id: "terlambat evakuasi" },
+    { w: "一つ一つ", r: "ひとつひとつ", id: "satu per satu" },
+    { w: "見て回る", r: "みてまわる", id: "berkeliling memeriksa" },
+    { w: "煙体験", r: "けむりたいけん", id: "simulasi kondisi berasap" },
+    { w: "充満する", r: "じゅうまんする", id: "terisi" },
+    { w: "逃げる", r: "にげる", id: "melarikan diri" },
+    { w: "進む", r: "すすむ", id: "maju" },
+    { w: "注意点", r: "ちゅういてん", id: "hal yang perlu diperhatikan" },
+    { w: "煙を吸う", r: "けむりをすう", id: "mengisap asap" },
+    { w: "声をかけ合う", r: "こえをかけあう", id: "saling berbicara satu sama lain" },
+    { w: "床", r: "ゆか", id: "lantai" },
+    { w: "抜く", r: "ぬく", id: "menarik; melepas" },
+    { w: "先", r: "さき", id: "ujung" },
+    { w: "向ける", r: "むける", id: "menghadap" },
+    { w: "途中", r: "とちゅう", id: "tengah" },
+    { w: "握る", r: "にぎる", id: "menggenggam" },
+    { w: "噴射する", r: "ふんしゃする", id: "menyemprotkan" },
+    { w: "左右", r: "さゆう", id: "kiri dan kanan" },
+    { w: "狙う", r: "ねらう", id: "membidik, mengarahkan" },
+    { w: "消える", r: "きえる", id: "padam" },
+    { w: "～m", r: "～メートル", id: "～ meter" },
+    { w: "～秒", r: "～びょう", id: "～ detik" },
+    { w: "感じる", r: "かんじる", id: "merasa" },
+    { w: "落ちる", r: "おちる", id: "jatuh, roboh" },
+    { w: "ゆがむ", r: "", id: "melengkung" },
+    { w: "無理をする", r: "むりをする", id: "memaksakan diri" },
+    { w: "ガスコンロ", r: "", id: "kompor gas" },
+    { w: "天井", r: "てんじょう", id: "atap, langit-langit" },
+    { w: "届く", r: "とどく", id: "sampai" },
+    { w: "危ない", r: "あぶない", id: "berbahaya" },
+    { w: "町中", r: "まちなか", id: "di jalan, di kota" },
+    { w: "屋外", r: "おくがい", id: "di luar ruangan" },
+    { w: "ガラス", r: "", id: "kaca" },
+    { w: "～必要がある／ない", r: "～ひつようがある／ない", id: "perlu / tidak perlu untuk ～" },
+    { w: "今回", r: "こんかい", id: "kali ini" },
+    { w: "レベル", r: "", id: "level, tingkat" },
+    { w: "一人暮らし", r: "ひとりぐらし", id: "hidup; tinggal sendiri" },
+    { w: "早め", r: "はやめ", id: "lebih awal" },
+    { w: "続く", r: "つづく", id: "berlanjut" },
+    { w: "容器", r: "ようき", id: "wadah" },
+    { w: "仮設", r: "かせつ", id: "sementara" },
+    { w: "持ち出す", r: "もちだす", id: "membawa keluar" },
+    { w: "力", r: "ちから", id: "tenaga, kekuatan" },
+    { w: "（賞味期限が）切れる", r: "（しょうみきげんが）きれる", id: "habis; sudah lewat (masa kedaluwarsa)" }
+  ],
+  "17": [
+    { w: "和太鼓", r: "わだいこ", id: "taiko, beduk khas Jepang" },
+    { w: "サークル", r: "", id: "klub" },
+    { w: "入る", r: "はいる", id: "ikut, bergabung" },
+    { w: "誘う", r: "さそう", id: "mengajak" },
+    { w: "おかげで", r: "", id: "berkat" },
+    { w: "ゲストハウス", r: "", id: "guest house" },
+    { w: "やりとり", r: "", id: "interaksi; komunikasi" },
+    { w: "以外", r: "いがい", id: "selain --" },
+    { w: "うまい", r: "", id: "terampil, pintar" },
+    { w: "ドラマ", r: "", id: "drama; sinetron" },
+    { w: "ほとんど", r: "", id: "kebanyakan, umumnya" },
+    { w: "セリフ", r: "", id: "dialog" },
+    { w: "アイディア", r: "", id: "ide" },
+    { w: "笑う", r: "わらう", id: "tertawa" },
+    { w: "そろそろ", r: "", id: "sudah hampir" },
+    { w: "～のころ", r: "", id: "saat, waktu" },
+    { w: "苦労する", r: "くろうする", id: "menjalani saat-saat yang berat, kesulitan" },
+    { w: "締め日", r: "しめび", id: "tenggat; batas waktu penyelesaian transaksi" },
+    { w: "納期", r: "のうき", id: "tenggat; batas waktu pengiriman" },
+    { w: "友だちリクエスト", r: "ともだちリクエスト", id: "permintaan pertemanan" },
+    { w: "承認する", r: "しょうにんする", id: "menyetujui, menerima" },
+    { w: "授業", r: "じゅぎょう", id: "kuliah, pelajaran" },
+    { w: "問題", r: "もんだい", id: "masalah" },
+    { w: "感謝する", r: "かんしゃする", id: "menghargai, berterima kasih" }
+  ],
+  "18": [
+    { w: "自動車", r: "じどうしゃ", id: "mobil" },
+    { w: "整備", r: "せいび", id: "perawatan" },
+    { w: "役に立つ", r: "やくにたつ", id: "berguna, bermanfaat" },
+    { w: "技術", r: "ぎじゅつ", id: "teknik" },
+    { w: "がんばる", r: "", id: "bekerja keras" },
+    { w: "暮らし", r: "くらし", id: "kehidupan" },
+    { w: "うまくいく", r: "", id: "berjalan lancar, sukses" },
+    { w: "若者", r: "わかもの", id: "pemuda" },
+    { w: "卒業する", r: "そつぎょうする", id: "lulus" },
+    { w: "別の～", r: "べつの～", id: "-- yang lain" },
+    { w: "広げる", r: "ひろげる", id: "memperluas" },
+    { w: "もともと", r: "", id: "aslinya, awalnya" },
+    { w: "募集", r: "ぼしゅう", id: "perekrutan" },
+    { w: "応募する", r: "おうぼする", id: "melamar (pekerjaan)" },
+    { w: "続ける", r: "つづける", id: "melanjutkan" },
+    { w: "ストレス", r: "", id: "stres" },
+    { w: "知り合う", r: "しりあう", id: "berkenalan" },
+    { w: "とにかく", r: "", id: "pokoknya" },
+    { w: "最後", r: "さいご", id: "terakhir" },
+    { w: "ひとこと", r: "", id: "sepatah kata" },
+    { w: "働き始める", r: "はたらきはじめる", id: "mulai bekerja（～始める mulai～）" },
+    { w: "下手（な）", r: "へた（な）", id: "tidak pandai, tidak mahir" },
+    { w: "失敗する", r: "しっぱいする", id: "gagal, berbuat salah" },
+    { w: "工業", r: "こうぎょう", id: "industri" },
+    { w: "助ける", r: "たすける", id: "menolong; membantu" }
+  ]
+};
+
+// =========================================================
+// VOCABULARY MODE (ことば)
+// =========================================================
+let vocabState = {
+  lesson: null,
+  type: null,      // "flashcard" | "quiz_choice" | "quiz_input"
+  idx: 0,
+  queue: [],
+  answered: false,
+  userInput: "",
+  correct: 0,
+  incorrect: 0,
+  choices: null,
+  correctIdx: -1,
+  selectedIdx: -1
+};
+let vocabAnsweredIdx = new Set();
+let vocabFlipped = false;
+
+const VOCAB_AVAILABLE_LESSONS = Object.keys(VOCAB_DATA).map(Number).sort((a, b) => a - b);
+
+function getVocabWords(lessonNum) {
+  return VOCAB_DATA[String(lessonNum)] || [];
+}
+
+function vocabQid(lessonNum, w) { return `v:${lessonNum}:${w}`; }
+
+// ことばをルビ付きで表示する。読みが無ければそのまま。
+function vocabWordHtml(v) {
+  if (!v.r) return escapeHtml(v.w);
+  return `<ruby>${escapeHtml(v.w)}<rt>${escapeHtml(v.r)}</rt></ruby>`;
+}
+
+// 全課から、意味の選択肢用の語を集める
+function allVocabWords() {
+  const out = [];
+  VOCAB_AVAILABLE_LESSONS.forEach(ln => getVocabWords(ln).forEach(v => out.push(v)));
+  return out;
+}
+
+// 4択のダミー: まず同じ課から、足りなければ他の課から
+function vocabDistractors(target) {
+  const picks = [];
+  const take = list => {
+    for (const v of shuffleArray(list)) {
+      if (picks.length >= 3) break;
+      if (v.id === target.id || picks.indexOf(v.id) >= 0) continue;
+      picks.push(v.id);
+    }
+  };
+  take(getVocabWords(vocabState.lesson).filter(v => v.w !== target.w));
+  take(allVocabWords().filter(v => v.w !== target.w));
+  return picks;
+}
+
+// ---------- Router ----------
+function renderVocabMode() {
+  if (vocabState.lesson && vocabState.type) {
+    const total = vocabState.queue.length;
+    if (vocabState.idx >= total) { renderVocabCompletion(); return; }
+    if (vocabState.type === "flashcard") renderVocabFlashcard();
+    else if (vocabState.type === "quiz_choice") renderVocabQuizChoice();
+    else renderVocabQuizInput();
+  } else if (vocabState.lesson) {
+    renderVocabTypeMenu();
+  } else {
+    renderVocabLessonGrid();
+  }
+}
+
+// ---------- 課の一覧 ----------
+function renderVocabLessonGrid() {
+  let html = `<div class="grammar-list">
+    <h2>📖 ことば ー <ruby>課<rt>か</rt></ruby>を<ruby>選<rt>えら</rt></ruby>んでください / Pilih lesson</h2>
+    <p style="font-size:0.88em; color:#718096; margin-bottom:12px;">
+      <ruby>各課<rt>かくか</rt></ruby>の<ruby>新<rt>あたら</rt></ruby>しいことばを<ruby>覚<rt>おぼ</rt></ruby>えましょう。<br>
+      <span class="build-id-line">Hafalkan kosakata baru dari tiap pelajaran.</span>
+    </p>
+    <div class="lesson-grid">`;
+  LESSONS.forEach(l => {
+    const n = getVocabWords(l.num).length;
+    html += `
+      <div class="lesson-card ${n ? "" : "locked"}" ${n ? `onclick="selectVocabLesson(${l.num})"` : ""}>
+        <div class="lesson-num"><ruby>第<rt>だい</rt></ruby>${l.num}<ruby>課<rt>か</rt></ruby></div>
+        <div class="lesson-title">${l.title}</div>
+        <div class="lesson-topic">${n ? `${n} <ruby>語<rt>ご</rt></ruby>` : "<ruby>準備中<rt>じゅんびちゅう</rt></ruby> / Segera"}</div>
+      </div>`;
+  });
+  html += `</div></div>`;
+  main.innerHTML = html;
+}
+
+function selectVocabLesson(num) {
+  vocabState.lesson = num;
+  vocabState.type = null;
+  render();
+}
+
+// ---------- 練習タイプの選択 ----------
+function renderVocabTypeMenu() {
+  const lesson = LESSONS.find(l => l.num === vocabState.lesson);
+  const words = getVocabWords(vocabState.lesson);
+  let rows = "";
+  words.forEach(v => {
+    rows += `<div class="vocab-list-row">
+      <span class="vocab-list-w">${vocabWordHtml(v)}</span>
+      <span class="vocab-list-id">${escapeHtml(v.id)}</span>
+    </div>`;
+  });
+  main.innerHTML = `
+    <div class="quiz-area">
+      <button class="back-btn" onclick="vocabBackToLessons()">← <ruby>課<rt>か</rt></ruby>リストに<ruby>戻<rt>もど</rt></ruby>る</button>
+      <h2 style="color:#a01e34; margin:14px 0 6px;">📖 <ruby>第<rt>だい</rt></ruby>${lesson.num}<ruby>課<rt>か</rt></ruby> ・ ${lesson.title}</h2>
+      <p style="color:#718096; margin-bottom:20px;">${words.length} <ruby>語<rt>ご</rt></ruby> / kata - <ruby>練習<rt>れんしゅう</rt></ruby>タイプを<ruby>選<rt>えら</rt></ruby>んでください / Pilih jenis latihan</p>
+      <div class="kanji-type-grid">
+        <div class="kanji-type-card" onclick="selectVocabType('flashcard')">
+          <div class="kanji-type-icon">🃏</div>
+          <div class="kanji-type-title">フラッシュカード</div>
+          <div class="kanji-type-desc">Flashcard - ことばと<ruby>意味<rt>いみ</rt></ruby>を<ruby>暗記<rt>あんき</rt></ruby></div>
+        </div>
+        <div class="kanji-type-card" onclick="selectVocabType('quiz_choice')">
+          <div class="kanji-type-icon">🎯</div>
+          <div class="kanji-type-title"><ruby>意味<rt>いみ</rt></ruby>クイズ (4<ruby>択<rt>たく</rt></ruby>)</div>
+          <div class="kanji-type-desc">Pilihan ganda - ことば → <ruby>意味<rt>いみ</rt></ruby></div>
+        </div>
+        <div class="kanji-type-card" onclick="selectVocabType('quiz_input')">
+          <div class="kanji-type-icon">⌨️</div>
+          <div class="kanji-type-title">ことばを<ruby>書<rt>か</rt></ruby>く (<ruby>入力<rt>にゅうりょく</rt></ruby>)</div>
+          <div class="kanji-type-desc">Input - <ruby>意味<rt>いみ</rt></ruby> → ことば</div>
+        </div>
+      </div>
+      <h3 style="color:#a01e34; margin:24px 0 4px; font-size:1.02em;">📋 ことばリスト / Daftar kosakata</h3>
+      <div class="vocab-list">${rows}</div>
+    </div>`;
+}
+
+function selectVocabType(type) {
+  vocabState.type = type;
+  vocabState.idx = 0;
+  vocabState.correct = 0;
+  vocabState.incorrect = 0;
+  vocabState.answered = false;
+  vocabState.userInput = "";
+  vocabState.choices = null;
+  vocabState.correctIdx = -1;
+  vocabState.selectedIdx = -1;
+  vocabAnsweredIdx = new Set();
+  vocabFlipped = false;
+  vocabState.queue = shuffleArray([...Array(getVocabWords(vocabState.lesson).length).keys()]);
+  render();
+}
+
+function vocabBackToLessons() { vocabState.lesson = null; vocabState.type = null; render(); }
+function vocabBackToTypeMenu() { vocabState.type = null; render(); }
+
+function currentVocabWord() {
+  return getVocabWords(vocabState.lesson)[vocabState.queue[vocabState.idx]];
+}
+
+function vocabHeader(label) {
+  const total = vocabState.queue.length;
+  return `
+    <div class="quiz-header">
+      <span class="quiz-progress">${vocabState.idx + 1} / ${total}</span>
+      <span class="quiz-stats">📖 <ruby>第<rt>だい</rt></ruby>${vocabState.lesson}<ruby>課<rt>か</rt></ruby> ・ ${label}</span>
+    </div>`;
+}
+
+function vocabStats() {
+  return `
+    <div class="stats">
+      <div class="stat-box"><div class="stat-label"><ruby>進捗<rt>しんちょく</rt></ruby></div><div class="stat-value">${vocabState.idx + 1}/${vocabState.queue.length}</div></div>
+      <div class="stat-box"><div class="stat-label"><ruby>正解<rt>せいかい</rt></ruby></div><div class="stat-value correct">${vocabState.correct}</div></div>
+      <div class="stat-box"><div class="stat-label"><ruby>不正解<rt>ふせいかい</rt></ruby></div><div class="stat-value incorrect">${vocabState.incorrect}</div></div>
+    </div>`;
+}
+
+// ---------- フラッシュカード ----------
+function renderVocabFlashcard() {
+  const v = currentVocabWord();
+  const total = vocabState.queue.length;
+  main.innerHTML = `
+    <div class="quiz-area">
+      <button class="back-btn" onclick="vocabBackToTypeMenu()">← <ruby>戻<rt>もど</rt></ruby>る</button>
+      ${vocabHeader("フラッシュカード")}
+      <div class="flashcard ${vocabFlipped ? "flipped" : ""}" onclick="flipVocabCard()">
+        <div class="flashcard-front">
+          <div class="vocab-word">${vocabWordHtml(v)}</div>
+          <div class="flashcard-hint">タップして<ruby>答<rt>こた</rt></ruby>えを<ruby>見<rt>み</rt></ruby>る / Tap untuk melihat jawaban</div>
+        </div>
+        <div class="flashcard-back">
+          <div class="vocab-word">${escapeHtml(v.w)}</div>
+          ${v.r ? `<div class="vocab-reading">${escapeHtml(v.r)}</div>` : ""}
+          <div class="vocab-id">🇮🇩 ${escapeHtml(v.id)}</div>
+        </div>
+      </div>
+      <div class="flashcard-controls">
+        <button class="quiz-btn secondary" onclick="vocabCardKnown(false)">😕 <ruby>難<rt>むずか</rt></ruby>しい / Sulit</button>
+        <button class="quiz-btn primary" onclick="vocabCardKnown(true)">✅ <ruby>覚<rt>おぼ</rt></ruby>えた / Sudah hafal</button>
+      </div>
+      ${quizNavBar("prevVocabQuestion()", "nextVocabQuestion()", vocabState.idx, total)}
+    </div>`;
+}
+
+function flipVocabCard() { vocabFlipped = !vocabFlipped; render(); }
+
+function vocabCardKnown(known) {
+  if (!vocabAnsweredIdx.has(vocabState.idx)) {
+    vocabAnsweredIdx.add(vocabState.idx);
+    if (known) vocabState.correct++; else vocabState.incorrect++;
+  }
+  vocabState.idx++;
+  vocabFlipped = false;
+  render();
+}
+
+// ---------- 4択（ことば → 意味） ----------
+function renderVocabQuizChoice() {
+  const v = currentVocabWord();
+  const total = vocabState.queue.length;
+
+  if (!vocabState.answered && vocabState.choices === null) {
+    const opts = shuffleArray([v.id, ...vocabDistractors(v)]);
+    vocabState.choices = opts;
+    vocabState.correctIdx = opts.indexOf(v.id);
+    vocabState.selectedIdx = -1;
+  }
+
+  let choicesHtml = "";
+  (vocabState.choices || []).forEach((txt, i) => {
+    let cls = "choice-btn";
+    if (vocabState.answered) {
+      if (i === vocabState.correctIdx) cls += " correct";
+      else if (i === vocabState.selectedIdx) cls += " incorrect";
+    }
+    choicesHtml += `<button class="${cls}" ${vocabState.answered ? "disabled" : `onclick="answerVocabChoice(${i})"`}>${String.fromCharCode(65 + i)}. ${escapeHtml(txt)}</button>`;
+  });
+
+  const ok = vocabState.selectedIdx === vocabState.correctIdx;
+  const feedback = vocabState.answered ? `
+    <div class="feedback show ${ok ? "correct" : "incorrect"}">
+      <div class="answer-jp">${ok ? "✅ <ruby>正解<rt>せいかい</rt></ruby>! / Benar!" : "❌ <ruby>不正解<rt>ふせいかい</rt></ruby> / Salah"}</div>
+      <div style="margin-top:6px;">${vocabWordHtml(v)}${v.r ? `（${escapeHtml(v.r)}）` : ""} = <strong>${escapeHtml(v.id)}</strong></div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="nextVocabQuestion()">${vocabState.idx + 1 >= total ? "<ruby>結果<rt>けっか</rt></ruby>を<ruby>見<rt>み</rt></ruby>る / Lihat hasil" : "<ruby>次<rt>つぎ</rt></ruby>へ → / Lanjut"}</button>
+      </div>
+    </div>` : "";
+
+  main.innerHTML = `
+    <div class="quiz-area">
+      <button class="back-btn" onclick="vocabBackToTypeMenu()">← <ruby>戻<rt>もど</rt></ruby>る</button>
+      ${vocabStats()}
+      ${vocabHeader("<ruby>意味<rt>いみ</rt></ruby>クイズ")}
+      <div class="quiz-instruction">このことばの<ruby>意味<rt>いみ</rt></ruby>は？ / Apa arti kata ini?</div>
+      <div class="vocab-target">${vocabWordHtml(v)}</div>
+      <div class="quiz-choices">${choicesHtml}</div>
+      ${feedback}
+      ${quizNavBar("prevVocabQuestion()", "nextVocabQuestion()", vocabState.idx, total)}
+    </div>`;
+  if (vocabState.answered) installVocabAdvanceKey();
+}
+
+function answerVocabChoice(i) {
+  if (vocabState.answered) return;
+  vocabState.selectedIdx = i;
+  vocabState.answered = true;
+  const v = currentVocabWord();
+  const isCorrect = i === vocabState.correctIdx;
+  if (!vocabAnsweredIdx.has(vocabState.idx)) {
+    vocabAnsweredIdx.add(vocabState.idx);
+    if (isCorrect) vocabState.correct++; else vocabState.incorrect++;
+    recordAnswer(vocabQid(vocabState.lesson, v.w), isCorrect, {
+      type: "vocab", lesson: vocabState.lesson, w: v.w
+    });
+  }
+  render();
+}
+
+// ---------- 入力（意味 → ことば） ----------
+function renderVocabQuizInput() {
+  const v = currentVocabWord();
+  const total = vocabState.queue.length;
+  const ans = vocabState.userInput.trim();
+  const isCorrect = answerMatches(ans, [v.w, v.r]);
+
+  const feedback = vocabState.answered ? `
+    <div class="feedback show ${isCorrect ? "correct" : "incorrect"}">
+      <div class="answer-jp">${isCorrect ? "✅ <ruby>正解<rt>せいかい</rt></ruby>! / Benar!" : "❌ <ruby>不正解<rt>ふせいかい</rt></ruby> / Salah"}</div>
+      <div style="margin-top:6px;"><ruby>正<rt>ただ</rt></ruby>しい<ruby>答<rt>こた</rt></ruby>え / Jawaban: <strong>${vocabWordHtml(v)}</strong>${v.r ? `（${escapeHtml(v.r)}）` : ""}</div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="nextVocabQuestion()">${vocabState.idx + 1 >= total ? "<ruby>結果<rt>けっか</rt></ruby>を<ruby>見<rt>み</rt></ruby>る / Lihat hasil" : "<ruby>次<rt>つぎ</rt></ruby>へ → / Lanjut"}</button>
+      </div>
+    </div>` : "";
+
+  main.innerHTML = `
+    <div class="quiz-area">
+      <button class="back-btn" onclick="vocabBackToTypeMenu()">← <ruby>戻<rt>もど</rt></ruby>る</button>
+      ${vocabStats()}
+      ${vocabHeader("ことばを<ruby>書<rt>か</rt></ruby>く")}
+      <div class="quiz-instruction">
+        この<ruby>意味<rt>いみ</rt></ruby>のことばを<ruby>書<rt>か</rt></ruby>きましょう / Tulis kata dengan arti ini<br>
+        <span class="build-id-line">※ <ruby>漢字<rt>かんじ</rt></ruby>・かな・ローマ字、どれでもOK</span>
+      </div>
+      <div class="vocab-prompt-id">🇮🇩 ${escapeHtml(v.id)}</div>
+      <div class="kanji-input-area">
+        <input type="text" id="vocab-input-field" class="kanji-input" placeholder="ことばを入力..."
+          value="${escapeHtml(vocabState.userInput)}"
+          ${vocabState.answered ? "disabled" : ""}
+          oninput="vocabState.userInput = this.value"
+          onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229 && !vocabState.answered) submitVocabInput()"
+          autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        ${!vocabState.answered ? `<button class="quiz-btn primary" onclick="submitVocabInput()"><ruby>確認<rt>かくにん</rt></ruby> / Cek</button>` : ""}
+      </div>
+      ${feedback}
+      ${quizNavBar("prevVocabQuestion()", "nextVocabQuestion()", vocabState.idx, total)}
+    </div>`;
+  if (!vocabState.answered) {
+    setTimeout(() => { const el = document.getElementById("vocab-input-field"); if (el) el.focus(); }, 50);
+  } else {
+    installVocabAdvanceKey();
+  }
+}
+
+function submitVocabInput() {
+  if (vocabState.answered) return;
+  const v = currentVocabWord();
+  const isCorrect = answerMatches(vocabState.userInput, [v.w, v.r]);
+  vocabState.answered = true;
+  if (!vocabAnsweredIdx.has(vocabState.idx)) {
+    vocabAnsweredIdx.add(vocabState.idx);
+    if (isCorrect) vocabState.correct++; else vocabState.incorrect++;
+    recordAnswer(vocabQid(vocabState.lesson, v.w), isCorrect, {
+      type: "vocab", lesson: vocabState.lesson, w: v.w
+    });
+  }
+  render();
+}
+
+// ---------- 移動 ----------
+let _vocabKeyHandler = null;
+function cleanupVocabKey() {
+  if (_vocabKeyHandler) { document.removeEventListener("keydown", _vocabKeyHandler); _vocabKeyHandler = null; }
+}
+function installVocabAdvanceKey() {
+  cleanupVocabKey();
+  _vocabKeyHandler = e => {
+    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); nextVocabQuestion(); }
+  };
+  document.addEventListener("keydown", _vocabKeyHandler);
+}
+
+function vocabResetQuestionState() {
+  vocabState.answered = false;
+  vocabState.userInput = "";
+  vocabState.choices = null;
+  vocabState.correctIdx = -1;
+  vocabState.selectedIdx = -1;
+  vocabFlipped = false;
+  cleanupVocabKey();
+}
+
+function nextVocabQuestion() {
+  vocabState.idx++;
+  vocabResetQuestionState();
+  render();
+}
+
+function prevVocabQuestion() {
+  if (vocabState.idx <= 0) return;
+  vocabState.idx--;
+  vocabResetQuestionState();
+  render();
+}
+
+// ---------- 完了画面 ----------
+function renderVocabCompletion() {
+  cleanupVocabKey();
+  const total = vocabState.correct + vocabState.incorrect;
+  const pct = total > 0 ? Math.round(100 * vocabState.correct / total) : 0;
+  const emoji = pct >= 90 ? "🏆" : pct >= 70 ? "🎉" : pct >= 50 ? "😊" : "💪";
+  main.innerHTML = `
+    <div class="quiz-area">
+      <div class="completion">
+        <div class="emoji">${emoji}</div>
+        <h2><ruby>完了<rt>かんりょう</rt></ruby>！ / Selesai!</h2>
+        <div class="score-text">
+          <ruby>正解<rt>せいかい</rt></ruby>: <strong style="color:#28a745;">${vocabState.correct}</strong> / ${total}<br>
+          <ruby>正答率<rt>せいとうりつ</rt></ruby>: <strong>${pct}%</strong>
+        </div>
+        <div class="btn-row" style="justify-content:center;">
+          <button class="btn btn-primary" onclick="selectVocabType('${vocabState.type}')">もう<ruby>一度<rt>いちど</rt></ruby> / Ulangi</button>
+          <button class="btn btn-secondary" onclick="vocabBackToTypeMenu()"><ruby>一覧<rt>いちらん</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>る</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ---------- 復習モード連携 ----------
+function renderReviewVocabQ(resolved, header) {
+  const { word: v, lesson } = resolved;
+  const tag = `<span class="review-tag review-tag-vocab">📖 ことば L${lesson}</span>`;
+  const ans = reviewState.userInput.trim();
+  const isCorrect = answerMatches(ans, [v.w, v.r]);
+
+  const feedback = reviewState.answered ? `
+    <div class="quiz-feedback">
+      <div class="feedback-card ${isCorrect ? "correct-feedback" : "incorrect-feedback"}">
+        ${isCorrect ? "✅ <strong>正解！</strong> / Benar!" : "❌ <strong><ruby>残念<rt>ざんねん</rt></ruby>！</strong> / Salah!"}
+        <div style="margin-top:6px;"><ruby>正<rt>ただ</rt></ruby>しい<ruby>答<rt>こた</rt></ruby>え / Jawaban: <strong>${vocabWordHtml(v)}</strong>${v.r ? `（${escapeHtml(v.r)}）` : ""}</div>
+      </div>
+      <button class="quiz-btn primary" onclick="nextReviewQuestion()">${reviewState.idx + 1 >= reviewState.queue.length ? "<ruby>結果<rt>けっか</rt></ruby>を<ruby>見<rt>み</rt></ruby>る / Lihat hasil" : "<ruby>次<rt>つぎ</rt></ruby>へ / Selanjutnya →"}</button>
+    </div>` : "";
+
+  main.innerHTML = `
+    <div class="quiz-area">
+      <button class="back-btn" onclick="exitReviewQuiz()">← <ruby>復習<rt>ふくしゅう</rt></ruby>メニュー</button>
+      ${header}
+      <div style="margin:8px 0;">${tag}</div>
+      <div class="quiz-instruction">この<ruby>意味<rt>いみ</rt></ruby>のことばを<ruby>書<rt>か</rt></ruby>きましょう / Tulis kata dengan arti ini</div>
+      <div class="vocab-prompt-id">🇮🇩 ${escapeHtml(v.id)}</div>
+      <div class="kanji-input-area">
+        <input type="text" id="review-input-field" class="kanji-input" placeholder="ことばを入力..."
+          value="${escapeHtml(reviewState.userInput)}"
+          ${reviewState.answered ? "disabled" : ""}
+          oninput="reviewState.userInput = this.value"
+          onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229 && !reviewState.answered) answerReviewVocab()"
+          autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        ${!reviewState.answered ? `<button class="quiz-btn primary" onclick="answerReviewVocab()"><ruby>確認<rt>かくにん</rt></ruby> / Cek</button>` : ""}
+      </div>
+      ${feedback}
+      ${quizNavBar("prevReviewQuestion()", "nextReviewQuestion()", reviewState.idx, reviewState.queue.length)}
+    </div>`;
+  if (!reviewState.answered) {
+    setTimeout(() => { const el = document.getElementById("review-input-field"); if (el) el.focus(); }, 50);
+  }
+  if (reviewState.answered) installReviewAdvanceKey();
+}
+
+function answerReviewVocab() {
+  if (reviewState.answered) return;
+  const entry = reviewState.queue[reviewState.idx];
+  const resolved = resolveReviewItem(entry);
+  if (!resolved) return;
+  const v = resolved.word;
+  const isCorrect = answerMatches(reviewState.userInput, [v.w, v.r]);
+  reviewState.answered = true;
+  if (!reviewAnsweredIdx.has(reviewState.idx)) {
+    reviewAnsweredIdx.add(reviewState.idx);
+    if (isCorrect) reviewState.correct++; else reviewState.incorrect++;
+    recordAnswer(entry.qid, isCorrect, entry);
+  }
+  render();
+}
+
+// =========================================================
 // TAB SWITCHING
 // =========================================================
 document.querySelectorAll(".mode-tab").forEach(tab => {
@@ -10861,6 +12074,7 @@ document.querySelectorAll(".mode-tab").forEach(tab => {
     currentGrammar = null;
     if (currentMode === "conjugation") conjState = { idx: 0, queue: [], correct: 0, incorrect: 0, answered: false };
     if (currentMode === "kanji") kanjiState = { lesson: null, type: null, idx: 0, queue: [], correct: 0, incorrect: 0, answered: false, userInput: "" };
+    if (currentMode === "vocab") vocabState = { lesson: null, type: null, idx: 0, queue: [], answered: false, userInput: "", correct: 0, incorrect: 0, choices: null, correctIdx: -1, selectedIdx: -1 };
     if (currentMode === "build") buildState = { lesson: null, gpId: null, idx: 0, poolOrder: [], tray: [], answered: false, lastCorrect: false, correct: 0, incorrect: 0 };
     if (currentMode === "review") reviewState = { view: "menu", queue: [], idx: 0, answered: false, correct: 0, incorrect: 0, userInput: "", choices: null, correctIdx: -1, selectedIdx: -1 };
     render();
